@@ -1,5 +1,5 @@
 test1.py
-
+*.mcdr
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
