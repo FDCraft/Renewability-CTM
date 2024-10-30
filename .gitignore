@@ -1,5 +1,7 @@
 test1.py
+test2.py
 *.mcdr
+minecraft_data_api/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

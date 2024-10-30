@@ -8,7 +8,7 @@
 
 # 与原项目的区别
 
-- 通过内置改版的 Minecraft_data_api 以 支持 1.20.4 - 的带 NBT 物品复制。
+- 通过内置改版的 Minecraft_data_api 以 支持 1.20.4 - 的带 NBT 物品复制。1.21 版本仍需 Minecraft_data_api。
 - 去除了物品限制与每日复制上限。有需求的可以自行 Fork 加回去。
 
 # 用法

@@ -4,8 +4,6 @@ import re
 from typing import Optional
 from mcdreforged.api.all import *
 
-from .PlayerDataGetter import PlayerDataGetter
-
 Prefix = '!!clone'
 MsgPrefix = '[{0}] '
 HelpMessage = '''
@@ -22,39 +20,43 @@ HelpMessage = '''
 PLUGIN_METADATA = Metadata({'id': 'renewability'})
 
 class ItemStack:
-    def __init__(self, item_id: str, count: int, nbt_str: int):
+    def __init__(self, item_id: str, count: int, componets: int):
         self.id = item_id
         self.count = count
-        self.nbt = nbt_str
+        self.componets = componets
         
     @classmethod
-    def from_str(cls, itemstack_str):
-        ID_REGEX = re.compile(r'^{id: "(.+?)", tag: ')
-        ID_REGEX_2 = re.compile(r'^{id: "(.+?)"')
-        item_id = ID_REGEX.search(itemstack_str)
-        if item_id:
-            item_id = item_id.group(1)
-            itemstack_str = ID_REGEX.sub('', itemstack_str)
-        else:
-            item_id = ID_REGEX_2.search(itemstack_str).group(1)
-            itemstack_str = ID_REGEX_2.sub('', itemstack_str)
-            
-
-        COUNT_REGEX = re.compile(r', Count: (\d{1,2}?)b}$')
-        count = COUNT_REGEX.search(itemstack_str).group(1)
-        nbt_str = COUNT_REGEX.sub('', itemstack_str).replace(' ', '')
+    def from_json(cls, itemstack_json: dict):
+        itemstack_json = json.loads(json.dumps(itemstack_json))
         
-        return cls(item_id, count, nbt_str)
+        item_id = itemstack_json['id']
+        count = itemstack_json['count']
+        
+        componets = itemstack_json.get('components', None)
+        
+        if componets is None:
+            return cls(item_id, count, '')
+        
+        componets_formatted = '['
+            
+        for key, value in componets.items():
+            value = '\'' + value + '\'' if isinstance(value, str) else value
+            componets_formatted += f'{key}={str(value)},'
+        
+        componets_formatted = componets_formatted[:-1]
+        componets_formatted += ']'
+        
+        return cls(item_id, count, componets_formatted)
 
 
 def msg(content: str):
     return MsgPrefix + content
 
 def get_itemstack(server: ServerInterface, player):
+    MCDataAPI = server.get_plugin_instance('minecraft_data_api')
     try:
-        
-        itemstack_str = player_data_getter.get_player_info(player, 'SelectedItem', timeout=1)
-        return str(itemstack_str)
+        itemstack_json = MCDataAPI.get_player_info(player, 'SelectedItem', timeout=1)
+        return itemstack_json
     except Exception as e:
         server.logger.error('Error occurred while getting item')
         server.logger.error(e)
@@ -68,19 +70,17 @@ def clone_item(source: CommandSource):
         return None
     server = source.get_server()
     player = source.get_info().player
-    itemstack_str = get_itemstack(server, player)
-    itemstack = ItemStack.from_str(itemstack_str)
+    itemstack_json = get_itemstack(server, player)
+    itemstack = ItemStack.from_json(itemstack_json)
     
     if itemstack:
-        server.execute(f'give {player} {itemstack.id}{itemstack.nbt} {itemstack.count}')
+        server.execute(f'give {player} {itemstack.id}{itemstack.componets} {itemstack.count}')
         source.reply(msg(f'§a物品§7 {itemstack.id} §a复制成功§r'))
         server.logger.info(f'{player} cloned an item {itemstack.id}')
     else:
         source.reply(msg('§c当前主手上无物品§r'))
         return None
 
-
-player_data_getter: PlayerDataGetter
 
 def on_load(server: PluginServerInterface, prev):
     global PLUGIN_METADATA, MsgPrefix, HelpMessage, player_data_getter
@@ -94,11 +94,3 @@ def on_load(server: PluginServerInterface, prev):
         then(Literal('help').runs(lambda source: source.reply(HelpMessage))). \
         runs(clone_item)
     )
-    
-    player_data_getter = PlayerDataGetter(server)
-    if hasattr(prev, 'player_data_getter'):
-        player_data_getter.queue_lock = prev.player_data_getter.queue_lock
-        player_data_getter.work_queue = prev.player_data_getter.work_queue
-    
-def on_info(server, info):
-	player_data_getter.on_info(info)
